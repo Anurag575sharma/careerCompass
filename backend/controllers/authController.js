@@ -12,6 +12,7 @@ const cookieOptions = {
 
 export const register = async (req, res) => {
   const {fullName, email, password} = req.body;
+  console.log(fullName);
 
   const userExists = await User.findOne({email});
 

@@ -24,6 +24,7 @@ export default function Profile() {
       const response = await axios.get("http://localhost:8000/api/profile", {
         withCredentials: true,
       });
+      console.log(response.data.fullName);
       setProfile({
         fullName: response.data.fullName,
         email: response.data.email,

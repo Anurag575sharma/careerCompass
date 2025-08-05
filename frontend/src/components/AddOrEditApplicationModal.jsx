@@ -76,7 +76,7 @@ const AddOrEditApplicationModal = ({
         </h2>
 
         <form className="space-y-4" onSubmit={handleSubmit}>
-          {["role", "company", "status", "date Applied"].map((key) => (
+          {["role", "company", "status", "dateApplied"].map((key) => (
             <div key={key}>
               <label className="block text-sm">
                 {key.charAt(0).toUpperCase() + key.slice(1)}{" "}

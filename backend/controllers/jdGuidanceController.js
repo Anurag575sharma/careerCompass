@@ -2,9 +2,55 @@ import fs from "fs";
 import mammoth from "mammoth";
 import pdf from "pdf-parse";
 import axios from "axios";
+import nlp from "compromise";
 import {configDotenv} from "dotenv";
 
 configDotenv(); // Load environment variables from .env
+
+function regexMask(text) {
+  return text
+    .replace(/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/g, '[EMAIL]')
+    .replace(/\b\d{10}\b/g, '[PHONE]')
+    .replace(/\b\d{5,6}\b/g, '[PINCODE]')
+    .replace(/https?:\/\/(www\.)?(linkedin|github|gitlab|bitbucket|twitter|facebook)\.com\/[^\s)]+/gi, '[SOCIAL_LINK]')
+    .replace(/https?:\/\/[^\s)]+/gi, '[URL]');
+}
+
+function nerMask(text) {
+  let doc = nlp(text);
+
+  doc.people().replaceWith('[PERSON]');
+  doc.places().replaceWith('[PLACE]');
+  doc.organizations().replaceWith('[ORG]');
+  doc.match('#Date').replaceWith('[DATE]');
+
+  return doc.text();
+}
+
+function guessNameFromFirstLine(text) {
+  const firstLine = text.split('\n')[0];
+  const nameMatch = firstLine.match(/^[A-Z][a-z]+(\s+[A-Z][a-z]+){0,2}$/); // e.g., "Anuj Khandelwal"
+  if (nameMatch) {
+    text = text.replace(nameMatch[0], '[NAME]');
+  }
+  return text;
+}
+
+function maskNameSmart(text, knownName = null) {
+  let doc = nlp(text);
+
+  doc.people().replaceWith('[NAME]');
+  let updated = doc.text();
+
+  if (knownName) {
+    updated = maskKnownName(updated, knownName);
+  } else {
+    updated = guessNameFromFirstLine(updated);
+  }
+
+  return updated;
+}
+
 
 export const jdGuidance = async (req, res) => {
   try {
@@ -17,7 +63,7 @@ export const jdGuidance = async (req, res) => {
     const filePath = req.file.path;
     let resumeText = "";
     const jobDescription =
-      req.body.jobDescription || " No job description provided.";
+      req.body.jobDescription || "No job description provided.";
     try {
       if (req.file.mimetype === "application/pdf") {
         const dataBuffer = fs.readFileSync(filePath);
@@ -42,6 +88,17 @@ export const jdGuidance = async (req, res) => {
         error: extractionErr.message,
       });
     }
+
+    
+
+
+
+    // Mask sensitive information
+    resumeText = regexMask(resumeText);
+    resumeText = nerMask(resumeText);
+    resumeText = maskNameSmart(resumeText, req.body.knownName || null);
+
+    console.log("📄 Resume text extracted successfully", resumeText);
 
     // Clean up uploaded file
     fs.unlinkSync(filePath);
